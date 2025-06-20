@@ -116,7 +116,7 @@ data clean.vs_clean vs_issues;
             end;
             else do; /* Celsius */
                 if TEMP_VSORRES < 35 or TEMP_VSORRES > 42 then
-                    issue_flag = catx('; ', issue_flag, 'Temperature out of range (35-42°C)');
+                    issue_flag = catx('; ', issue_flag, 'Temperature out of range (35-42C)');
             end;
         end;
         
@@ -159,6 +159,124 @@ run;
 proc print data=vs_issues(obs=20);
     var USUBJID VSDAT VSTIM SYSBP_VSORRES DIABP_VSORRES PULSE_VSORRES issue_flag;
     title "Vital Signs Data Issues (First 20)";
+run;
+
+/* Additional vital signs datasets */
+
+/* 2a. Pre-procedure vital signs (VSPRE) */
+data clean.vspre_clean vspre_issues;
+    set raw.vspre;
+    length issue_flag $500 USUBJID $50;
+    issue_flag = '';
+
+    if index(PATIENT, '-') > 0 then USUBJID = scan(PATIENT, -1, ' ');
+
+    if VSPERF = 'NO' and missing(VSREASND) then
+        issue_flag = catx('; ', issue_flag, 'VS not performed but no reason given');
+
+    if VSPERF = 'YES' then do;
+        if not missing(TEMP_VSORRES) then do;
+            if TEMP_VSORRES > 50 then do;
+                TEMP_C = (TEMP_VSORRES - 32) * 5/9;
+                if TEMP_C < 35 or TEMP_C > 42 then
+                    issue_flag = catx('; ', issue_flag, 'Temperature out of range');
+            end;
+            else if TEMP_VSORRES < 35 or TEMP_VSORRES > 42 then
+                issue_flag = catx('; ', issue_flag, 'Temperature out of range (35-42C)');
+        end;
+
+        if not missing(SYSBP_VSORRES) then do;
+            if SYSBP_VSORRES < 70 or SYSBP_VSORRES > 250 then
+                issue_flag = catx('; ', issue_flag, 'Systolic BP out of range (70-250 mmHg)');
+        end;
+        else issue_flag = catx('; ', issue_flag, 'Systolic BP missing when VS performed');
+
+        if not missing(DIABP_VSORRES) then do;
+            if DIABP_VSORRES < 40 or DIABP_VSORRES > 150 then
+                issue_flag = catx('; ', issue_flag, 'Diastolic BP out of range (40-150 mmHg)');
+        end;
+        else issue_flag = catx('; ', issue_flag, 'Diastolic BP missing when VS performed');
+
+        if not missing(SYSBP_VSORRES) and not missing(DIABP_VSORRES) then do;
+            if SYSBP_VSORRES <= DIABP_VSORRES then
+                issue_flag = catx('; ', issue_flag, 'Systolic BP <= Diastolic BP');
+        end;
+
+        if not missing(PULSE_VSORRES) then do;
+            if PULSE_VSORRES < 30 or PULSE_VSORRES > 200 then
+                issue_flag = catx('; ', issue_flag, 'Heart rate out of range (30-200 bpm)');
+        end;
+        else issue_flag = catx('; ', issue_flag, 'Heart rate missing when VS performed');
+
+        if missing(VSDAT) then issue_flag = catx('; ', issue_flag, 'VS date missing');
+        if missing(VSTIM) then issue_flag = catx('; ', issue_flag, 'VS time missing');
+    end;
+
+    if issue_flag ne '' then output vspre_issues;
+    output clean.vspre_clean;
+run;
+
+proc print data=vspre_issues(obs=20);
+    var USUBJID VSDAT VSTIM SYSBP_VSORRES DIABP_VSORRES PULSE_VSORRES issue_flag;
+    title "VSPRE Data Issues (First 20)";
+run;
+
+/* 2b. Post-procedure vital signs (VSPOST) */
+data clean.vspost_clean vspost_issues;
+    set raw.vspost;
+    length issue_flag $500 USUBJID $50;
+    issue_flag = '';
+
+    if index(PATIENT, '-') > 0 then USUBJID = scan(PATIENT, -1, ' ');
+
+    if STRESS_VSPERF = 'NO' and missing(STRESS_VSREASND) then
+        issue_flag = catx('; ', issue_flag, 'VS not performed but no reason given');
+
+    if STRESS_VSPERF = 'YES' then do;
+        if not missing(STRESS_TEMP_VSORRES) then do;
+            if STRESS_TEMP_VSORRES > 50 then do;
+                TEMP_C = (STRESS_TEMP_VSORRES - 32) * 5/9;
+                if TEMP_C < 35 or TEMP_C > 42 then
+                    issue_flag = catx('; ', issue_flag, 'Temperature out of range');
+            end;
+            else if STRESS_TEMP_VSORRES < 35 or STRESS_TEMP_VSORRES > 42 then
+                issue_flag = catx('; ', issue_flag, 'Temperature out of range (35-42C)');
+        end;
+
+        if not missing(STRESS_SYSBP_VSORRES) then do;
+            if STRESS_SYSBP_VSORRES < 70 or STRESS_SYSBP_VSORRES > 250 then
+                issue_flag = catx('; ', issue_flag, 'Systolic BP out of range (70-250 mmHg)');
+        end;
+        else issue_flag = catx('; ', issue_flag, 'Systolic BP missing when VS performed');
+
+        if not missing(STRESS_DIABP_VSORRES) then do;
+            if STRESS_DIABP_VSORRES < 40 or STRESS_DIABP_VSORRES > 150 then
+                issue_flag = catx('; ', issue_flag, 'Diastolic BP out of range (40-150 mmHg)');
+        end;
+        else issue_flag = catx('; ', issue_flag, 'Diastolic BP missing when VS performed');
+
+        if not missing(STRESS_SYSBP_VSORRES) and not missing(STRESS_DIABP_VSORRES) then do;
+            if STRESS_SYSBP_VSORRES <= STRESS_DIABP_VSORRES then
+                issue_flag = catx('; ', issue_flag, 'Systolic BP <= Diastolic BP');
+        end;
+
+        if not missing(STRESS_PULSE_VSORRES) then do;
+            if STRESS_PULSE_VSORRES < 30 or STRESS_PULSE_VSORRES > 200 then
+                issue_flag = catx('; ', issue_flag, 'Heart rate out of range (30-200 bpm)');
+        end;
+        else issue_flag = catx('; ', issue_flag, 'Heart rate missing when VS performed');
+
+        if missing(STRESS_VSDAT) then issue_flag = catx('; ', issue_flag, 'VS date missing');
+        if missing(STRESS_VSTIM) then issue_flag = catx('; ', issue_flag, 'VS time missing');
+    end;
+
+    if issue_flag ne '' then output vspost_issues;
+    output clean.vspost_clean;
+run;
+
+proc print data=vspost_issues(obs=20);
+    var USUBJID STRESS_VSDAT STRESS_VSTIM STRESS_SYSBP_VSORRES STRESS_DIABP_VSORRES STRESS_PULSE_VSORRES issue_flag;
+    title "VSPOST Data Issues (First 20)";
 run;
 
 /******************************************************************************
@@ -362,6 +480,10 @@ proc sql;
     union
     select 'VS', count(*) from vs_issues
     union
+    select 'VSPRE', count(*) from vspre_issues
+    union
+    select 'VSPOST', count(*) from vspost_issues
+    union
     select 'EG', count(*) from eg_issues
     union
     select 'MH', count(*) from mh_issues
@@ -387,6 +509,8 @@ proc sql;
            sum(count) as Count from
            (select count(*) as count from raw.dm
             union select count(*) from raw.vs
+             union select count(*) from raw.vspre
+             union select count(*) from raw.vspost
             union select count(*) from raw.eg
             union select count(*) from raw.mh
             union select count(*) from raw.ae
@@ -416,6 +540,8 @@ data all_issues_report;
     set dm_issues(in=a keep=USUBJID issue_flag)
         vs_issues(in=b keep=USUBJID issue_flag)
         eg_issues(in=c keep=USUBJID issue_flag)
+         vspre_issues(in=bp keep=USUBJID issue_flag)
+         vspost_issues(in=bq keep=USUBJID issue_flag)
         mh_issues(in=d keep=USUBJID issue_flag)
         ae_issues(in=e keep=USUBJID issue_flag)
         cm_issues(in=f keep=USUBJID issue_flag)
@@ -424,6 +550,8 @@ data all_issues_report;
     
     if a then domain = 'DM';
     else if b then domain = 'VS';
+     else if bp then domain = 'VSPRE';
+     else if bq then domain = 'VSPOST';
     else if c then domain = 'EG';
     else if d then domain = 'MH';
     else if e then domain = 'AE';
@@ -449,7 +577,7 @@ run;
 /* Final log */
 %put NOTE: Data cleaning completed for MedTrace-002;
 %put NOTE: Issues summary saved to &outpath;
-%put NOTE: Total domains processed: 8;
+%put NOTE: Total domains processed: 10;
 
 /******************************************************************************
 * END OF PROGRAM
