@@ -96,10 +96,14 @@ data clean.vs_clean vs_issues;
     issue_flag = '';
     
     /* Create USUBJID - extract from PATIENT field if needed */
+
     if index(PATIENT, '-') > 0 then do;
         USUBJID = scan(PATIENT, -1, ' ');
     end;
-    
+
+
+
+
     /* Check if VS performed */
     if VSPERF = 'NO' and missing(VSREASND) then 
         issue_flag = catx('; ', issue_flag, 'VS not performed but no reason given');
@@ -291,6 +295,7 @@ data clean.eg_clean eg_issues;
     if index(PATIENT, '-') > 0 then do;
         USUBJID = scan(PATIENT, -1, ' ');
     end;
+
     
     /* Check for missing required fields */
     if missing(EGDAT) then issue_flag = catx('; ', issue_flag, 'ECG date missing');
@@ -345,11 +350,15 @@ data clean.ae_clean ae_issues;
     set raw.ae;
     length issue_flag $500 USUBJID $50;
     issue_flag = '';
-    
+
     /* Extract USUBJID from PATIENT field */
     if index(PATIENT, '-') > 0 then do;
         USUBJID = scan(PATIENT, -1, ' ');
     end;
+
+    /* Flag informational lines in the AE dataset */
+    if index(upcase(AETERM), 'INFO') > 0 then
+        issue_flag = catx('; ', issue_flag, 'Informational line present');
     
     /* Check for missing required fields */
     if missing(AETERM) then issue_flag = catx('; ', issue_flag, 'AE term missing');
@@ -360,6 +369,17 @@ data clean.ae_clean ae_issues;
         if input(AESTDAT, anydtdte32.) > input(AEENDAT, anydtdte32.) then
             issue_flag = catx('; ', issue_flag, 'AE start date after end date');
     end;
+
+    if not missing(AESTDAT) then do;
+        if input(AESTDAT, anydtdte32.) > today() then
+            issue_flag = catx('; ', issue_flag, 'AE start date in future');
+    end;
+
+    if AEONGO = 'YES' and not missing(AEENDAT) then
+        issue_flag = catx('; ', issue_flag, 'Marked as ongoing but has end date');
+
+    if AEONGO = 'NO' and missing(AEENDAT) then
+        issue_flag = catx('; ', issue_flag, 'Not ongoing but missing end date');
     
     /* Check SAE consistency */
     if AESER = 'YES' then do; /* Serious AE */
